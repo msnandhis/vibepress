@@ -217,7 +217,7 @@ export default function AdminLayout({
         )}
 
         {/* Main Content */}
-        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-4rem)] bg-background">
+        <main className="flex-1 lg:ml-64 min-h-[calc(100vh-4rem)] bg-muted/10">
           <div className="p-6">
             {children}
           </div>

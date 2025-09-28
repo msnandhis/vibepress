@@ -5,6 +5,7 @@ import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AdminCard } from "@/components/ui/admin-card";
 import {
   Plus,
   TrendingUp,
@@ -69,13 +70,14 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (session?.user) {
+    if (session?.user && loading) {
       fetchDashboardData();
     }
-  }, [session, isSessionPending, router]);
+  }, [session, isSessionPending, router, loading]);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
+    // Only fetch if we're actually loading
+    if (!loading) return;
 
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -175,211 +177,197 @@ export default function AdminDashboard() {
           Welcome back, {session.user.name}
         </h1>
         <p className="text-muted-foreground">
-          Here's what's happening with your content today
+          Here&apos;s what&apos;s happening with your content today
         </p>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Posts</p>
-                <p className="text-3xl font-bold text-foreground">{stats.posts}</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-50 dark:bg-blue-950/20 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-blue-600" />
-              </div>
+        <AdminCard padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Posts</p>
+              <p className="text-3xl font-bold text-foreground">{stats.posts}</p>
             </div>
-            <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+12%</span>
-              <span className="text-muted-foreground ml-1">from last month</span>
+            <div className="h-12 w-12 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 rounded-lg flex items-center justify-center border border-blue-200/50 dark:border-blue-800/30">
+              <FileText className="h-6 w-6 text-blue-600" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center mt-4 text-sm">
+            <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <span className="text-green-600 font-medium">+12%</span>
+            <span className="text-muted-foreground ml-1">from last month</span>
+          </div>
+        </AdminCard>
 
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Page Views</p>
-                <p className="text-3xl font-bold text-foreground">{stats.views.toLocaleString()}</p>
-              </div>
-              <div className="h-12 w-12 bg-green-50 dark:bg-green-950/20 rounded-lg flex items-center justify-center">
-                <Eye className="h-6 w-6 text-green-600" />
-              </div>
+        <AdminCard padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Page Views</p>
+              <p className="text-3xl font-bold text-foreground">{stats.views.toLocaleString()}</p>
             </div>
-            <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+8.2%</span>
-              <span className="text-muted-foreground ml-1">from last week</span>
+            <div className="h-12 w-12 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 rounded-lg flex items-center justify-center border border-green-200/50 dark:border-green-800/30">
+              <Eye className="h-6 w-6 text-green-600" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center mt-4 text-sm">
+            <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <span className="text-green-600 font-medium">+8.2%</span>
+            <span className="text-muted-foreground ml-1">from last week</span>
+          </div>
+        </AdminCard>
 
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Users</p>
-                <p className="text-3xl font-bold text-foreground">{stats.users.toLocaleString()}</p>
-              </div>
-              <div className="h-12 w-12 bg-purple-50 dark:bg-purple-950/20 rounded-lg flex items-center justify-center">
-                <Users className="h-6 w-6 text-purple-600" />
-              </div>
+        <AdminCard padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Users</p>
+              <p className="text-3xl font-bold text-foreground">{stats.users.toLocaleString()}</p>
             </div>
-            <div className="flex items-center mt-4 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+24</span>
-              <span className="text-muted-foreground ml-1">new this week</span>
+            <div className="h-12 w-12 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 rounded-lg flex items-center justify-center border border-purple-200/50 dark:border-purple-800/30">
+              <Users className="h-6 w-6 text-purple-600" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center mt-4 text-sm">
+            <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+            <span className="text-green-600 font-medium">+24</span>
+            <span className="text-muted-foreground ml-1">new this week</span>
+          </div>
+        </AdminCard>
 
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Media Files</p>
-                <p className="text-3xl font-bold text-foreground">{stats.media}</p>
-              </div>
-              <div className="h-12 w-12 bg-orange-50 dark:bg-orange-950/20 rounded-lg flex items-center justify-center">
-                <ImageIcon className="h-6 w-6 text-orange-600" />
-              </div>
+        <AdminCard padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Media Files</p>
+              <p className="text-3xl font-bold text-foreground">{stats.media}</p>
             </div>
-            <div className="flex items-center mt-4 text-sm">
-              <span className="text-muted-foreground">2.4 GB storage used</span>
+            <div className="h-12 w-12 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/30 dark:to-orange-900/20 rounded-lg flex items-center justify-center border border-orange-200/50 dark:border-orange-800/30">
+              <ImageIcon className="h-6 w-6 text-orange-600" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex items-center mt-4 text-sm">
+            <span className="text-muted-foreground">2.4 GB storage used</span>
+          </div>
+        </AdminCard>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Quick Actions */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-display text-lg font-semibold text-foreground">Quick Actions</h3>
-            </div>
-            <div className="space-y-4">
+        <AdminCard padding="md">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-display text-lg font-semibold text-foreground">Quick Actions</h3>
+          </div>
+          <div className="space-y-4">
+            <Button
+              onClick={handleNewPost}
+              className="w-full justify-start h-12 bg-primary hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4 mr-3" />
+              Create New Post
+            </Button>
+            <Button
+              onClick={handleNewPage}
+              variant="outline"
+              className="w-full justify-start h-12"
+            >
+              <FileText className="h-4 w-4 mr-3" />
+              Create New Page
+            </Button>
+            <Link href="/admin/media">
               <Button
-                onClick={handleNewPost}
-                className="w-full justify-start h-12 bg-primary hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4 mr-3" />
-                Create New Post
-              </Button>
-              <Button
-                onClick={handleNewPage}
                 variant="outline"
                 className="w-full justify-start h-12"
               >
-                <FileText className="h-4 w-4 mr-3" />
-                Create New Page
+                <ImageIcon className="h-4 w-4 mr-3" />
+                Upload Media
               </Button>
-              <Link href="/admin/media">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12"
-                >
-                  <ImageIcon className="h-4 w-4 mr-3" />
-                  Upload Media
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+            </Link>
+          </div>
+        </AdminCard>
 
         {/* Recent Activity */}
-        <Card className="lg:col-span-2 border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-display text-lg font-semibold text-foreground">Recent Activity</h3>
-              <Link href="/admin/activity">
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                  View All
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </Link>
-            </div>
-            <div className="space-y-4">
-              {activity.map((item) => (
-                <div key={item.id} className="flex items-start gap-4">
-                  <Image
-                    src={item.avatar}
-                    alt={item.user}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">
-                      <span className="font-medium">{item.user}</span>
-                      <span className="text-muted-foreground"> {item.action} {item.type} </span>
-                      <span className="font-medium">"{item.title}"</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{item.time}</p>
-                  </div>
-                  <div className="h-2 w-2 bg-green-500 rounded-full mt-2"></div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Posts */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-6">
+        <AdminCard className="lg:col-span-2" padding="md">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-display text-lg font-semibold text-foreground">Recent Posts</h3>
-            <Link href="/admin/posts">
+            <h3 className="font-display text-lg font-semibold text-foreground">Recent Activity</h3>
+            <Link href="/admin/activity">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                View All Posts
+                View All
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentPosts.map((post) => (
-              <div key={post.id} className="group">
-                <div className="relative aspect-[16/10] mb-4 overflow-hidden rounded-lg">
-                  <Image
-                    src={post.image}
-                    alt={post.title}
-                    fill
-                    className="object-cover transition-transform duration-200 group-hover:scale-105"
-                  />
-                  <div className="absolute top-3 left-3">
-                    <span className={cn(
-                      "px-2 py-1 text-xs font-medium rounded-md text-white",
-                      post.status === 'published' ? 'bg-green-600' : 'bg-yellow-600'
-                    )}>
-                      {post.status}
-                    </span>
-                  </div>
+          <div className="space-y-3">
+            {activity.map((item) => (
+              <div key={item.id} className="flex items-start gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors duration-150">
+                <Image
+                  src={item.avatar}
+                  alt={item.user}
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">
+                    <span className="font-medium">{item.user}</span>
+                    <span className="text-muted-foreground"> {item.action} {item.type} </span>
+                    <span className="font-medium">"{item.title}"</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{item.time}</p>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{post.category}</span>
-                    <span>{post.date}</span>
-                  </div>
-                  <h4 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {post.title}
-                  </h4>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Eye className="h-4 w-4" />
-                    <span>{post.views.toLocaleString()} views</span>
-                  </div>
-                </div>
+                <div className="h-2 w-2 bg-green-500 rounded-full mt-2"></div>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </AdminCard>
+      </div>
+
+      {/* Recent Posts */}
+      <AdminCard padding="md">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-display text-lg font-semibold text-foreground">Recent Posts</h3>
+          <Link href="/admin/posts">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              View All Posts
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {recentPosts.map((post) => (
+            <div key={post.id} className="group">
+              <div className="relative aspect-[16/10] mb-4 overflow-hidden rounded-lg">
+                <Image
+                  src={post.image}
+                  alt={post.title}
+                  fill
+                  className="object-cover transition-transform duration-200 group-hover:scale-105"
+                />
+                <div className="absolute top-3 left-3">
+                  <span className={cn(
+                    "px-2 py-1 text-xs font-medium rounded-md text-white",
+                    post.status === 'published' ? 'bg-green-600' : 'bg-yellow-600'
+                  )}>
+                    {post.status}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{post.category}</span>
+                  <span>{post.date}</span>
+                </div>
+                <h4 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                  {post.title}
+                </h4>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Eye className="h-4 w-4" />
+                  <span>{post.views.toLocaleString()} views</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </AdminCard>
     </div>
   );
 }

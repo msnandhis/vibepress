@@ -135,7 +135,7 @@ export default function StoriesForYou() {
         </div>
         <Link
           href="#"
-          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <div className="flex items-center gap-2">
             <span>View All</span>
