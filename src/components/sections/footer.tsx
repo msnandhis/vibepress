@@ -63,10 +63,10 @@ const Footer = () => {
             <div className="flex flex-col">
               <Link href="/">
                 <Image
-                  src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/09933583-8014-4369-931a-d462f8acb42e-jellywp-com/assets/images/logo_n01-1.png"
+                  src="/vibepress-logo.svg"
                   alt="VIBEPRESS Logo"
-                  width={112}
-                  height={28}
+                  width={150}
+                  height={45}
                   className="h-auto"
                 />
               </Link>

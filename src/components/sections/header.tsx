@@ -99,10 +99,10 @@ const Header = () => {
             className="flex items-center"
             onClick={() => isMobileMenuOpen && setMobileMenuOpen(false)}>
             <Image
-                src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/09933583-8014-4369-931a-d462f8acb42e-jellywp-com/assets/images/logo_n01-1.png"
+                src="/vibepress-logo.svg"
                 alt="VIBEPRESS Logo"
-                width={85}
-                height={21}
+                width={140}
+                height={42}
                 priority
             />
         </Link>

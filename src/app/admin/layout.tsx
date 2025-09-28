@@ -98,10 +98,10 @@ export default function AdminLayout({
             </Button>
             <div className="flex items-center gap-3">
               <Image
-                src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/test-clones/09933583-8014-4369-931a-d462f8acb42e-jellywp-com/assets/images/logo_n01-1.png"
+                src="/vibepress-logo.svg"
                 alt="VibePress Logo"
-                width={85}
-                height={21}
+                width={120}
+                height={36}
                 priority
               />
               <div className="hidden md:block h-6 w-px bg-border" />
