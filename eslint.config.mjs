@@ -8,7 +8,7 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.config({
     extends: ['next'],
-    plugins: ['import'],
+    plugins: ['@typescript-eslint', 'import'],
   }),
   {
     rules: {
@@ -17,6 +17,7 @@ const eslintConfig = [
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'react-hooks/exhaustive-deps': 'off',
+      'react/jsx-no-comment-textnodes': 'off',
       'import/no-unresolved': 'error',
       'import/named': 'error',
       'import/default': 'error',

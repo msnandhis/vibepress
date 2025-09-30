@@ -3,11 +3,7 @@ import "./globals.css";
 import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
 import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
-import { Toaster } from "@/components/ui/sonner";
-import {
-  ThemeProvider as ThemeContextProvider,
-  useTheme,
-} from "@/context/theme-provider";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 
 export const metadata: Metadata = {
   title: "ViberPress - Modern News & Blog Platform",
@@ -37,11 +33,10 @@ export default function RootLayout({
           data-debug="true"
           data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
         />
-        <ThemeContextProvider>
+        <ThemeProvider>
           {children}
-        </ThemeContextProvider>
+        </ThemeProvider>
         <VisualEditsMessenger />
-        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

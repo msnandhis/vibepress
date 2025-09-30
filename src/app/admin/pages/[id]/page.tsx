@@ -199,7 +199,7 @@ export default function EditPage() {
                   <SelectValue placeholder="Select parent page" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No parent</SelectItem>
+                  <SelectItem value="none">No parent</SelectItem>
                   {/* Dynamic parent pages would be fetched here */}
                   {[
                     { id: 1, title: "Home" },

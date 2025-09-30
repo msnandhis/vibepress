@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from 'react';
-import { useSession } from '@/lib/auth-client';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,52 +9,59 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, UserPlus, Mail } from 'lucide-react';
 import Link from 'next/link';
+import { usersService } from '@/lib/users-service';
+import { UserRole, InviteCreate } from '@/types/users';
 
 export default function NewUserPage() {
-  const { data: session, isPending: isSessionPending } = useSession();
   const router = useRouter();
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
+    username: '',
     email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'viewer' as 'admin' | 'editor' | 'author' | 'contributor' | 'viewer',
-    avatar: '',
-    bio: ''
+    roleId: '',
+    bio: '',
+    sendInvitation: true
   });
   const [loading, setLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  if (isSessionPending) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
-  if (!session?.user || session.user.role !== 'admin') {
-    router.push('/sign-in');
-    return null;
-  }
+  const loadRoles = async () => {
+    try {
+      const response = await usersService.getRoles({}, 1, 100);
+      setAvailableRoles(response.roles);
+      // Set default role to subscriber/lowest level
+      const defaultRole = response.roles.find(r => r.isDefault) || response.roles[response.roles.length - 1];
+      if (defaultRole) {
+        setFormData(prev => ({ ...prev, roleId: defaultRole.id }));
+      }
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      toast.error('Failed to load roles');
+    }
+  };
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    if (!formData.roleId) {
+      newErrors.roleId = 'Role is required';
     }
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-    if (!['admin', 'editor', 'author', 'contributor', 'viewer'].includes(formData.role)) {
-      newErrors.role = 'Invalid role selected';
+    if (formData.username && formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
     }
 
     setErrors(newErrors);
@@ -68,29 +74,31 @@ export default function NewUserPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('bearer_token')}`
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
+      if (formData.sendInvitation) {
+        // Send invitation
+        const inviteData: InviteCreate = {
           email: formData.email.trim().toLowerCase(),
-          password: formData.password,
-          role: formData.role,
-          avatar: formData.avatar.trim() || undefined,
-          bio: formData.bio.trim() || undefined
-        })
-      });
+          roleId: formData.roleId
+        };
 
-      const data = await res.json();
+        await usersService.createInvite(inviteData);
+        toast.success('User invitation sent successfully!');
+      } else {
+        // Create user directly
+        const userData = {
+          email: formData.email.trim().toLowerCase(),
+          username: formData.username.trim() || undefined,
+          firstName: formData.firstName.trim() || undefined,
+          lastName: formData.lastName.trim() || undefined,
+          role: formData.roleId,
+          bio: formData.bio.trim() || undefined,
+          sendWelcomeEmail: true
+        };
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create user');
+        await usersService.createUser(userData);
+        toast.success('User created successfully!');
       }
 
-      toast.success('User created successfully!');
       router.push('/admin/users');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create user');
@@ -100,170 +108,190 @@ export default function NewUserPage() {
     }
   };
 
-  const roleColors: Record<string, string> = {
-    admin: 'bg-primary text-primary-foreground',
-    editor: 'bg-secondary',
-    author: 'bg-accent',
-    contributor: 'bg-muted',
-    viewer: 'bg-destructive'
+  const getRoleIcon = (role: UserRole) => {
+    if (role.level >= 90) return '👑';
+    if (role.level >= 70) return '✏️';
+    if (role.level >= 50) return '📝';
+    if (role.level >= 30) return '📋';
+    return '👁️';
   };
 
   return (
-    <div className="space-y-6 p-6 bg-background min-h-screen">
+    <div className="space-y-6 p-6">
       <div className="flex items-center space-x-4">
         <Button variant="ghost" asChild>
           <Link href="/admin/users">
-            <span className="flex items-center">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Users
-            </span>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Users
           </Link>
         </Button>
-        <CardTitle className="text-2xl font-display">Create New User</CardTitle>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Invite User</h1>
+          <p className="text-muted-foreground">Add a new user to your team</p>
+        </div>
       </div>
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Add User Account</CardTitle>
-          <CardDescription>
-            Create a new user account with email/password authentication and assign a role.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {errors.submit && (
-              <div className="p-4 border rounded-md border-destructive bg-destructive/5 text-destructive-foreground">
-                {errors.submit}
-              </div>
-            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter full name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={errors.name ? 'border-destructive' : ''}
-              />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
-            </div>
+      <div className="max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              User Details
+            </CardTitle>
+            <CardDescription>
+              {formData.sendInvitation
+                ? 'Send an invitation email to the user. They will receive a link to set up their account.'
+                : 'Create a user account directly. The user will need to be given login credentials separately.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {errors.submit && (
+                <div className="p-4 border rounded-md border-destructive bg-destructive/5">
+                  <p className="text-sm text-destructive">{errors.submit}</p>
+                </div>
+              )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter email address"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={errors.email ? 'border-destructive' : ''}
-              />
-              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter password (min 8 chars)"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className={errors.password ? 'border-destructive' : ''}
+              {/* Invitation Toggle */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <Label htmlFor="sendInvitation" className="font-medium">
+                      Send Invitation Email
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    User will receive an email to set up their account
+                  </p>
+                </div>
+                <Switch
+                  id="sendInvitation"
+                  checked={formData.sendInvitation}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, sendInvitation: checked })
+                  }
                 />
-                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
               </div>
+
+              {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="email">Email Address *</Label>
                 <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className={errors.confirmPassword ? 'border-destructive' : ''}
+                  id="email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className={errors.email ? 'border-destructive' : ''}
                 />
-                {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
+                {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as typeof formData.role })}>
-                <SelectTrigger className={errors.role ? 'border-destructive' : ''}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-primary"></span>
-                      Admin (full access)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="editor">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-secondary/50"></span>
-                      Editor (content management)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="author">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-accent/50"></span>
-                      Author (write/publish own content)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="contributor">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-muted/50"></span>
-                      Contributor (submit drafts)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="viewer">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-destructive/50"></span>
-                      Viewer (read only)
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
-            </div>
+              {/* Name Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="John"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Doe"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="avatar">Avatar URL (optional)</Label>
-              <Input
-                id="avatar"
-                placeholder="https://example.com/avatar.jpg"
-                value={formData.avatar}
-                onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              />
-              <p className="text-sm text-muted-foreground">Optional image URL for user avatar</p>
-            </div>
+              {/* Username */}
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  placeholder="johndoe (optional)"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className={errors.username ? 'border-destructive' : ''}
+                />
+                {errors.username && <p className="text-sm text-destructive">{errors.username}</p>}
+                <p className="text-sm text-muted-foreground">
+                  Optional. Must be at least 3 characters if provided.
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio (optional)</Label>
-              <Textarea
-                id="bio"
-                placeholder="Enter a short bio..."
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                rows={3}
-              />
-              <p className="text-sm text-muted-foreground">Optional short description about the user</p>
-            </div>
+              {/* Role */}
+              <div className="space-y-2">
+                <Label htmlFor="role">Role *</Label>
+                <Select
+                  value={formData.roleId}
+                  onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                >
+                  <SelectTrigger className={errors.roleId ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRoles
+                      .sort((a, b) => b.level - a.level)
+                      .map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-lg">{getRoleIcon(role)}</span>
+                            <div>
+                              <div className="font-medium">{role.name}</div>
+                              {role.description && (
+                                <div className="text-xs text-muted-foreground">
+                                  {role.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {errors.roleId && <p className="text-sm text-destructive">{errors.roleId}</p>}
+              </div>
 
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Creating...' : 'Create User'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              {/* Bio */}
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  placeholder="Optional bio or description..."
+                  value={formData.bio}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  rows={3}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Optional brief description about the user
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => router.push('/admin/users')}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading
+                    ? formData.sendInvitation
+                      ? 'Sending Invitation...'
+                      : 'Creating User...'
+                    : formData.sendInvitation
+                    ? 'Send Invitation'
+                    : 'Create User'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

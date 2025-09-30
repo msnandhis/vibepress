@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useSession } from '@/lib/auth-client';
-import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,108 +10,103 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  avatar?: string | null;
-  bio?: string | null;
-};
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Save, Users, Shield, Mail, User } from 'lucide-react';
+import { usersService } from '@/lib/users-service';
+import { User as UserType, UserRole, UserUpdate } from '@/types/users';
 
 export default function EditUserPage() {
-  const { data: session, isPending: isSessionPending } = useSession();
-  const router = useRouter();
   const params = useParams();
+  const router = useRouter();
   const userId = params.id as string;
-  const [user, setUser] = useState<User | null>(null);
+
+  const [user, setUser] = useState<UserType | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
+    displayName: '',
+    username: '',
     email: '',
-    password: '', // Optional for reset
-    role: 'viewer' as 'admin' | 'editor' | 'author' | 'contributor' | 'viewer',
-    avatar: '',
-    bio: ''
+    bio: '',
+    roleId: '',
+    status: 'active' as 'active' | 'inactive' | 'pending' | 'suspended' | 'banned',
+    emailVerified: false,
+    website: '',
+    location: '',
+    company: '',
+    jobTitle: ''
   });
 
   useEffect(() => {
-    if (!isSessionPending && (!session?.user || session.user.role !== 'admin')) {
-      router.push('/sign-in');
-      return;
+    if (userId) {
+      loadData();
     }
-    if (session?.user && userId) {
-      fetchUser();
-    }
-  }, [session, isSessionPending, router, userId]);
+  }, [userId]);
 
-  const fetchUser = async () => {
-    setLoading(true);
+  const loadData = async () => {
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('bearer_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to fetch user');
+      setLoading(true);
+
+      const [userData, rolesResponse] = await Promise.all([
+        usersService.getUser(userId),
+        usersService.getRoles({}, 1, 100)
+      ]);
+
+      if (!userData) {
+        toast.error('User not found');
+        router.push('/admin/users');
+        return;
       }
-      const data = await res.json();
-      setUser(data);
+
+      setUser(userData);
+      setAvailableRoles(rolesResponse.roles);
+
+      // Populate form
       setFormData({
-        name: data.name,
-        email: data.email,
-        password: '',
-        role: data.role,
-        avatar: data.avatar || '',
-        bio: data.bio || ''
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        displayName: userData.displayName || '',
+        username: userData.username || '',
+        email: userData.email,
+        bio: userData.bio || '',
+        roleId: userData.role.id,
+        status: userData.status,
+        emailVerified: userData.emailVerified,
+        website: userData.metadata?.website || '',
+        location: userData.metadata?.location || '',
+        company: userData.metadata?.company || '',
+        jobTitle: userData.metadata?.jobTitle || ''
       });
-    } catch (err) {
-      toast.error('Error loading user data');
-      router.push('/admin/users');
+    } catch (error) {
+      console.error('Error loading user:', error);
+      toast.error('Failed to load user data');
     } finally {
       setLoading(false);
     }
   };
 
-  if (isSessionPending || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center space-y-2">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p>Loading user data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session?.user || session.user.role !== 'admin' || !user) {
-    router.push('/sign-in');
-    return null;
-  }
-
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
-    if (formData.password && formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+
+    if (formData.username && formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
     }
-    if (!['admin', 'editor', 'author', 'contributor', 'viewer'].includes(formData.role)) {
-      newErrors.role = 'Invalid role selected';
+
+    if (!formData.roleId) {
+      newErrors.roleId = 'Role is required';
     }
 
     setErrors(newErrors);
@@ -123,197 +117,403 @@ export default function EditUserPage() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    setSubmitting(true);
+    setSaving(true);
     try {
-      const body: any = {
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        role: formData.role,
-        avatar: formData.avatar.trim() || null,
-        bio: formData.bio.trim() || null
+      const updateData: UserUpdate = {
+        firstName: formData.firstName.trim() || undefined,
+        lastName: formData.lastName.trim() || undefined,
+        displayName: formData.displayName.trim() || undefined,
+        username: formData.username.trim() || undefined,
+        email: formData.email.trim(),
+        bio: formData.bio.trim() || undefined,
+        role: formData.roleId,
+        status: formData.status,
+        emailVerified: formData.emailVerified,
+        metadata: {
+          website: formData.website.trim() || undefined,
+          location: formData.location.trim() || undefined,
+          company: formData.company.trim() || undefined,
+          jobTitle: formData.jobTitle.trim() || undefined
+        }
       };
 
-      // Only include password if provided (for reset)
-      if (formData.password) {
-        body.password = formData.password;
-      }
-
-      const res = await fetch(`/api/users?id=${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('bearer_token')}`
-        },
-        body: JSON.stringify(body)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update user');
-      }
-
-      toast.success('User updated successfully!');
-      router.push('/admin/users');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update user');
-      setErrors({ submit: err instanceof Error ? err.message : 'Unknown error' });
+      await usersService.updateUser(userId, updateData);
+      toast.success('User updated successfully');
+      router.push(`/admin/users/${userId}`);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update user');
+      setErrors({ submit: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const roleColors: Record<string, string> = {
-    admin: 'bg-primary text-primary-foreground',
-    editor: 'bg-secondary',
-    author: 'bg-accent',
-    contributor: 'bg-muted',
-    viewer: 'bg-destructive'
+  const getUserDisplayName = (user: UserType) => {
+    return user.displayName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.email;
   };
 
-  return (
-    <div className="space-y-6 p-6 bg-background min-h-screen">
-      <div className="flex items-center space-x-4">
-        <Button variant="ghost" asChild>
-          <Link href="/admin/users">
-            <span className="flex items-center">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Users
-            </span>
-          </Link>
-        </Button>
-        <CardTitle className="text-2xl font-display">Edit User: {user.name}</CardTitle>
+  const getRoleIcon = (role: UserRole) => {
+    if (role.level >= 90) return '👑';
+    if (role.level >= 70) return '✏️';
+    if (role.level >= 50) return '📝';
+    if (role.level >= 30) return '📋';
+    return '👁️';
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="skeleton h-8 w-48" />
+        <div className="skeleton h-96" />
       </div>
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Update User Account</CardTitle>
-          <CardDescription>
-            Modify user details. Password is optional (leave blank to keep current).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {errors.submit && (
-              <div className="p-4 border rounded-md border-destructive bg-destructive/5 text-destructive-foreground">
-                {errors.submit}
-              </div>
-            )}
+    );
+  }
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter full name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={errors.name ? 'border-destructive' : ''}
-              />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
-            </div>
+  if (!user) {
+    return (
+      <div className="space-y-6 p-6">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" asChild>
+            <Link href="/admin/users">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Users
+            </Link>
+          </Button>
+        </div>
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <Users className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">User Not Found</h3>
+          <p className="text-muted-foreground mb-6">
+            The user you are trying to edit does not exist.
+          </p>
+          <Link href="/admin/users">
+            <Button>Back to Users</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter email address"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={errors.email ? 'border-destructive' : ''}
-              />
-              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-            </div>
+  return (
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" asChild>
+            <Link href={`/admin/users/${userId}`}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Profile
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Edit User</h1>
+            <p className="text-muted-foreground">Update user information and settings</p>
+          </div>
+        </div>
+      </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password (optional)</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Leave blank to keep current password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className={errors.password ? 'border-destructive' : ''}
-              />
-              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-              <p className="text-sm text-muted-foreground">Enter a new password to reset it (min 8 chars).</p>
-            </div>
+      <form onSubmit={handleSubmit}>
+        <Tabs defaultValue="profile" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="metadata">Additional Info</TabsTrigger>
+          </TabsList>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as typeof formData.role })}>
-                <SelectTrigger className={errors.role ? 'border-destructive' : ''}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-primary"></span>
-                      Admin (full access)
+          <TabsContent value="profile" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Profile Information
+                </CardTitle>
+                <CardDescription>
+                  Basic profile information displayed to other users
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {errors.submit && (
+                  <div className="p-4 border rounded-md border-destructive bg-destructive/5">
+                    <p className="text-sm text-destructive">{errors.submit}</p>
+                  </div>
+                )}
+
+                {/* Names */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="John"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Doe"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Display Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="displayName">Display Name</Label>
+                  <Input
+                    id="displayName"
+                    placeholder="How the name appears publicly"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Leave empty to use first and last name
+                  </p>
+                </div>
+
+                {/* Username */}
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    placeholder="johndoe"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    className={errors.username ? 'border-destructive' : ''}
+                  />
+                  {errors.username && <p className="text-sm text-destructive">{errors.username}</p>}
+                </div>
+
+                {/* Bio */}
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Brief description about the user..."
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="account" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Account Settings
+                </CardTitle>
+                <CardDescription>
+                  Account access, role, and security settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="user@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className={errors.email ? 'border-destructive' : ''}
+                  />
+                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                </div>
+
+                {/* Email Verified */}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      <Label htmlFor="emailVerified" className="font-medium">
+                        Email Verified
+                      </Label>
                     </div>
-                  </SelectItem>
-                  <SelectItem value="editor">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-secondary/50"></span>
-                      Editor (content management)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="author">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-accent/50"></span>
-                      Author (write/publish own content)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="contributor">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-muted/50"></span>
-                      Contributor (submit drafts)
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="viewer">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-destructive/50"></span>
-                      Viewer (read only)
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
-            </div>
+                    <p className="text-sm text-muted-foreground">
+                      Mark email as verified if the user has confirmed their email
+                    </p>
+                  </div>
+                  <Switch
+                    id="emailVerified"
+                    checked={formData.emailVerified}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, emailVerified: checked })
+                    }
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="avatar">Avatar URL (optional)</Label>
-              <Input
-                id="avatar"
-                placeholder="https://example.com/avatar.jpg"
-                value={formData.avatar}
-                onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-              />
-              <p className="text-sm text-muted-foreground">Optional image URL for user avatar</p>
-            </div>
+                {/* Role */}
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role *</Label>
+                  <Select
+                    value={formData.roleId}
+                    onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                  >
+                    <SelectTrigger className={errors.roleId ? 'border-destructive' : ''}>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoles
+                        .sort((a, b) => b.level - a.level)
+                        .map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            <div className="flex items-center space-x-3">
+                              <span className="text-lg">{getRoleIcon(role)}</span>
+                              <div>
+                                <div className="font-medium">{role.name}</div>
+                                {role.description && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {role.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.roleId && <p className="text-sm text-destructive">{errors.roleId}</p>}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio (optional)</Label>
-              <Textarea
-                id="bio"
-                placeholder="Enter a short bio..."
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                rows={3}
-              />
-              <p className="text-sm text-muted-foreground">Optional short description about the user</p>
-            </div>
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label htmlFor="status">Account Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          <span>Active</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="inactive">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                          <span>Inactive</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pending">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                          <span>Pending</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="suspended">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                          <span>Suspended</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="banned">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                          <span>Banned</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Updating...' : 'Update User'}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          <TabsContent value="metadata" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Information</CardTitle>
+                <CardDescription>
+                  Optional metadata and contact information
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Website */}
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    placeholder="https://example.com"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="City, Country"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  />
+                </div>
+
+                {/* Company */}
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company</Label>
+                  <Input
+                    id="company"
+                    placeholder="Company name"
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  />
+                </div>
+
+                {/* Job Title */}
+                <div className="space-y-2">
+                  <Label htmlFor="jobTitle">Job Title</Label>
+                  <Input
+                    id="jobTitle"
+                    placeholder="Position or role"
+                    value={formData.jobTitle}
+                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/admin/users/${userId}`)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </Tabs>
+      </form>
     </div>
   );
 }
